@@ -1,0 +1,32 @@
+根目录下的train.py，训练代码的总体流程
+trainer.py中DGNet_Trainer为网络的调用以及定义损失函数进行梯度更新
+networks.py中定义了具体AdaINGen, MsImageDis
+reIDmodel.py中定义了ft_netAB
+输入图片3*256*128，分别表示图片的通道数，高，宽
+经过Es转换为structure code：128*64*32。注意：要将Es的输入转换为灰度图
+经过Ea转换为appearance code：2048*4*1
+#######################################################################################################
+AdaINGen=self.gen_a=self.gen_b=AdaIN auto-encoder architecture，
+AdaINGen分为Es=encode=ContentEncode和G=decode=Decoder两部分
+
+self.gen_a.encode：Es
+self.gen_b.decode:G
+self.id_a：Ea
+判别器D：multi-scale PatchGAN=MsImageDis= self.dis_a= self.dis_b
+用Adams训练Es，G,D,用SGD训练Ea
+D的优化器：dis_opt
+Es，G的优化器：gen_opt
+Ea的优化器：id_opt
+#####################################################################################################
+Es=encode=ContentEncode为4个卷积层和4个残差块，输出为128*64*32
+G=decode=Decoder为4个残差块和4个卷积块，其中每个跳跃连接块中都包含了两个instance normalization层，将a当作可以缩放的偏置参数。
+Ea=ft_netAB
+判别器D： MsImageDis，
+    输入图的是的是[batch_size，3，256，128]得到的是三个特征向量[batch_size, 1，64，32], [batch_size, 1，32，16], [batch_size, 1，16，8]，是需要一起计算损失的。
+    计算损失的有两个函数，分别为判别器的损失函数：calc_dis_loss(),生成器的损失函数：calc_gen_loss()，采用lsGAN作为损失函数，两个损失函数相互对抗
+#####################################################################################################
+老师-学生模型：
+    学生模型为Ea，使用Ea对对生成图片x_ba进行编码，输出两个结果：f_a（表示外貌信息，与身份无关）和p_a（表示身份信息）
+    对输出的p_a特征向量进行logsoftmax操作，输出为x_ba像某一张图片的概率
+
+    老师模型为resnet50，使用soft label，使用教师模型对生成图像x_ba_copy进行分类，输出结果为x_ba_copy像某张图片的概率（就是一个分布）
